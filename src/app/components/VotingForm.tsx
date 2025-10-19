@@ -6,7 +6,7 @@ import { db } from '@/lib/firebaseConfig';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
-const GROUPS = ['Grupo1', 'Grupo2', 'Grupo3', 'Grupo4', 'Grupo5', 'Grupo6', 'Grupo7', 'Grupo8'];
+const GROUPS = ['Payvo', 'Univan', 'Loqalli', 'TeachmeNow', 'Nouva', 'HavenUp', 'MedSpark', 'Agrored'];
 const TOTAL_BUDGET = 10000;
 
 export default function VotingForm() {

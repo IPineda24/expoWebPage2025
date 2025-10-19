@@ -6,7 +6,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const GROUPS = ['Grupo1', 'Grupo2', 'Grupo3', 'Grupo4', 'Grupo5', 'Grupo6', 'Grupo7', 'Grupo8'];
+const GROUPS = ['Payvo', 'Univan', 'Loqalli', 'TeachmeNow', 'Nouva', 'HavenUp', 'MedSpark', 'Agrored'];
 
 export default function ResultsPage() {
     const [totals, setTotals] = useState<Record<string, number>>( {} );
