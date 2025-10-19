@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebaseConfig';
 import { doc, onSnapshot } from 'firebase/firestore';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const GROUPS = ['Grupo1', 'Grupo2', 'Grupo3', 'Grupo4', 'Grupo5', 'Grupo6', 'Grupo7', 'Grupo8'];
 
@@ -38,11 +39,20 @@ export default function ResultsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-100 to-purple-100 p-8">
+            <div className='w-full flex justify-center'>
+                <Image
+                    src="/LogoExpoT.svg"
+                    alt="Logo"
+                    width={150}
+                    height={150}
+                />
+            </div>
+
             <div className="max-w-4xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl font-bold text-gray-800">Resultados en Tiempo Real</h1>
-                    <Link href="/" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold">
+                    <h1 className="text-4xl font-bold text-black">Resultados en Tiempo Real</h1>
+                    <Link href="/" className="bg-white hover:bg-gray-100 text-black px-6 py-2 rounded-lg font-semibold">
                         Ir a Votar
                     </Link>
                 </div>
