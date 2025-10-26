@@ -13,7 +13,7 @@ export default function Home() {
               {/* Logo */}
               <div className='w-full flex justify-center mb-8 md:mb-12'>
                 <Image
-                  src="/LogoExpoWw.svg"
+                  src="/public/LogoExpoWw.svg"
                   alt="Logo"
                   width={120}
                   height={120}
