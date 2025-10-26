@@ -166,14 +166,7 @@ export default function ResultsPage() {
                     </div>
                 </div>
 
-                {/* Debug info (remover en producción) */}
-                {process.env.NODE_ENV === 'development' && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
-                        <p className="font-semibold text-blue-900 mb-1">🔧 Debug Info:</p>
-                        <p className="text-blue-700">Shards detectados: {shardCount}</p>
-                        <p className="text-blue-700">Total agregado: ${totalInvested.toLocaleString()}</p>
-                    </div>
-                )}
+
 
                 {/* Rankings */}
                 <div className="space-y-2.5 md:space-y-3">
