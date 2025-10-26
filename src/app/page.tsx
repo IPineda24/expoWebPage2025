@@ -22,6 +22,7 @@ export default function Home() {
               </div>
             </div>
           </h1>
+
           <p className="text-cyan-200 text-sm sm:text-base">Expo de Logros 2025</p>
         </div>
 
