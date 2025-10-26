@@ -17,9 +17,9 @@ export default function Home() {
                 <Image
                   src="/LogoW.svg"
                   alt="LogoW"
-                  width={120}
-                  height={120}
-                  className="md:w-[160px] md:h-[160px]"
+                  width={200}
+                  height={150}
+                  className="md:w-[200px] md:h-[100px]"
                 />
               </div>
             </div>
