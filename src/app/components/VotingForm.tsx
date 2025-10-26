@@ -6,6 +6,7 @@ import { db } from '@/lib/firebaseConfig';
 import { doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const GROUPS_PHASE_1 = ['Payvo', 'MedSpark', 'TeachMeNow', 'Nouva'];
 const GROUPS_PHASE_2 = ['Univan', 'HavenUp', 'Loqalli', 'Agrored'];

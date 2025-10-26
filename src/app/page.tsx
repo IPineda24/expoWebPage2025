@@ -10,12 +10,16 @@ export default function Home() {
         <div className="text-center mb-6 sm:mb-8">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight">
             <div className='w-full flex justify-center'>
-              <Image
-                src="/LogoExpoWw.svg"
-                alt="Logo"
-                width={200}
-                height={100}
-              />
+              {/* Logo */}
+              <div className='w-full flex justify-center mb-8 md:mb-12'>
+                <Image
+                  src="/LogoExpoWw.svg"
+                  alt="Logo"
+                  width={120}
+                  height={120}
+                  className="md:w-[160px] md:h-[160px]"
+                />
+              </div>
             </div>
           </h1>
           <p className="text-cyan-200 text-sm sm:text-base">Expo de Logros 2025</p>
