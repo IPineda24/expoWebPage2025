@@ -47,8 +47,8 @@ async function registerVoteWithRetry( distribution: Record<string, number>, allG
                 }
             }
 
-            // Construir updates con increment
-            const updates: Record<string, any> = {};
+            // Construir updates con increment - Fixed: tipo correcto para Firestore
+            const updates: Record<string, ReturnType<typeof increment>> = {};
             Object.keys( distribution ).forEach( ( group ) => {
                 if ( distribution[group] > 0 ) {
                     updates[group] = increment( distribution[group] );
@@ -61,9 +61,9 @@ async function registerVoteWithRetry( distribution: Record<string, number>, allG
             console.log( `✓ Voto registrado en shard_${shardId} (intento ${attempt + 1})` );
             return { success: true, shardId };
 
-        } catch ( error: any ) {
-            lastError = error;
-            console.warn( `Intento ${attempt + 1} falló:`, error.message );
+        } catch ( error ) {
+            lastError = error instanceof Error ? error : new Error( 'Error desconocido' );
+            console.warn( `Intento ${attempt + 1} falló:`, lastError.message );
 
             // Esperar un tiempo aleatorio antes de reintentar (backoff exponencial)
             if ( attempt < MAX_RETRIES - 1 ) {
@@ -123,7 +123,7 @@ export default function VotingForm() {
 
     const handleSubmit = async ( e: React.FormEvent ) => {
         e.preventDefault();
-        setError( null );
+        setError( null ); // Ahora SÍ se usa
         setSuccess( false );
 
         // Validar que hay algo que votar
