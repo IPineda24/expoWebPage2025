@@ -3,15 +3,78 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebaseConfig';
-import { doc, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, increment, getDoc, setDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 const GROUPS_PHASE_1 = ['Payvo', 'MedSpark', 'TeachMeNow', 'Nouva'];
 const GROUPS_PHASE_2 = ['Univan', 'HavenUp', 'Loqalli', 'Agrored'];
 const TOTAL_BUDGET = 10000;
+const NUM_SHARDS = 20;
+const MAX_RETRIES = 5;
 
 type VotingPhase = 'not-voted' | 'phase-1-complete' | 'phase-2-complete';
+
+// Función para obtener un shard aleatorio
+function getRandomShard() {
+    return Math.floor( Math.random() * NUM_SHARDS );
+}
+
+// Función mejorada para registrar voto con reintentos y sin transacciones
+async function registerVoteWithRetry( distribution: Record<string, number>, allGroups: string[] ) {
+    let lastError: Error | null = null;
+
+    for ( let attempt = 0; attempt < MAX_RETRIES; attempt++ ) {
+        try {
+            const shardId = getRandomShard();
+            const shardDocRef = doc( db, 'groups', `shard_${shardId}` );
+
+            // Verificar si el shard existe
+            const shardSnap = await getDoc( shardDocRef );
+
+            if ( !shardSnap.exists() ) {
+                // Inicializar el shard si no existe
+                const initialData: Record<string, number> = {};
+                allGroups.forEach( group => {
+                    initialData[group] = 0;
+                } );
+
+                try {
+                    await setDoc( shardDocRef, initialData );
+                } catch ( setError ) {
+                    // Ignorar error si otro proceso ya lo creó
+                    console.log( `Shard ${shardId} ya fue creado por otro proceso` );
+                }
+            }
+
+            // Construir updates con increment
+            const updates: Record<string, any> = {};
+            Object.keys( distribution ).forEach( ( group ) => {
+                if ( distribution[group] > 0 ) {
+                    updates[group] = increment( distribution[group] );
+                }
+            } );
+
+            // Usar updateDoc que es más rápido que runTransaction
+            await updateDoc( shardDocRef, updates );
+
+            console.log( `✓ Voto registrado en shard_${shardId} (intento ${attempt + 1})` );
+            return { success: true, shardId };
+
+        } catch ( error: any ) {
+            lastError = error;
+            console.warn( `Intento ${attempt + 1} falló:`, error.message );
+
+            // Esperar un tiempo aleatorio antes de reintentar (backoff exponencial)
+            if ( attempt < MAX_RETRIES - 1 ) {
+                const delay = Math.min( 1000 * Math.pow( 2, attempt ) + Math.random() * 1000, 5000 );
+                await new Promise( resolve => setTimeout( resolve, delay ) );
+            }
+        }
+    }
+
+    throw lastError || new Error( 'Error desconocido al registrar voto' );
+}
 
 export default function VotingForm() {
     const router = useRouter();
@@ -32,14 +95,12 @@ export default function VotingForm() {
         if ( phase ) {
             setVotingPhase( phase );
 
-            // Cargar distribución guardada de fase 1 si existe
             const savedDistribution = localStorage.getItem( 'phase1Distribution' );
             if ( savedDistribution && phase === 'phase-1-complete' ) {
                 const parsed = JSON.parse( savedDistribution );
                 setDistribution( prev => ( { ...prev, ...parsed } ) );
                 setCurrentGroups( GROUPS_PHASE_2 );
             } else if ( phase === 'phase-2-complete' ) {
-                // Si ya completó ambas fases, mostrar fase 2 pero deshabilitado
                 setCurrentGroups( GROUPS_PHASE_2 );
             }
         }
@@ -54,7 +115,7 @@ export default function VotingForm() {
         const maxAllowed = TOTAL_BUDGET - otherGroupsTotal;
 
         if ( num > maxAllowed ) {
-            return; // No permitir exceder el presupuesto
+            return;
         }
 
         setDistribution( ( prev ) => ( { ...prev, [group]: Math.max( 0, num ) } ) );
@@ -65,59 +126,53 @@ export default function VotingForm() {
         setError( null );
         setSuccess( false );
 
+        // Validar que hay algo que votar
+        const voteAmount = currentGroups.reduce( ( sum, group ) => sum + distribution[group], 0 );
+        if ( voteAmount === 0 ) {
+            setError( 'Debes asignar al menos algo de presupuesto antes de votar' );
+            return;
+        }
+
         setLoading( true );
         try {
-            const groupsDocRef = doc( db, 'groups', 'totales' );
-
-            // USAR TRANSACCIÓN PARA EVITAR RACE CONDITIONS
-            await runTransaction( db, async ( transaction ) => {
-                const groupsDoc = await transaction.get( groupsDocRef );
-
-                if ( !groupsDoc.exists() ) {
-                    throw new Error( 'El documento de totales no existe' );
-                }
-
-                const currentTotals = groupsDoc.data();
-                const updatedTotals: Record<string, number> = {};
-
-                // Actualizar solo los grupos de la fase actual
-                currentGroups.forEach( ( group ) => {
-                    updatedTotals[group] = ( currentTotals[group] || 0 ) + distribution[group];
-                } );
-
-                // Actualizar el documento dentro de la transacción
-                transaction.update( groupsDocRef, updatedTotals );
+            // Obtener solo los valores de los grupos actuales
+            const currentDistribution: Record<string, number> = {};
+            currentGroups.forEach( group => {
+                currentDistribution[group] = distribution[group];
             } );
 
-            // Si la transacción fue exitosa, actualizar el estado local
+            // Registrar voto con reintentos
+            await registerVoteWithRetry(
+                currentDistribution,
+                [...GROUPS_PHASE_1, ...GROUPS_PHASE_2]
+            );
+
             if ( votingPhase === 'not-voted' ) {
-                // Completó fase 1
                 localStorage.setItem( 'votingPhase', 'phase-1-complete' );
-                localStorage.setItem( 'phase1Distribution', JSON.stringify(
-                    Object.fromEntries( currentGroups.map( g => [g, distribution[g]] ) )
-                ) );
+                localStorage.setItem( 'phase1Distribution', JSON.stringify( currentDistribution ) );
                 setVotingPhase( 'phase-1-complete' );
                 setSuccess( true );
 
-                // Redirigir a resultados después de un breve delay
                 setTimeout( () => {
                     router.push( '/results' );
                 }, 1500 );
             } else if ( votingPhase === 'phase-1-complete' ) {
-                // Completó fase 2
                 localStorage.setItem( 'votingPhase', 'phase-2-complete' );
                 setVotingPhase( 'phase-2-complete' );
                 setSuccess( true );
             }
         } catch ( err ) {
-            console.error( 'Error en la transacción:', err );
-            setError( err instanceof Error ? err.message : 'Error al registrar el voto. Por favor intenta de nuevo.' );
+            console.error( 'Error al registrar voto:', err );
+            setError(
+                err instanceof Error
+                    ? `Error: ${err.message}`
+                    : 'Error al registrar el voto. Por favor intenta de nuevo.'
+            );
         } finally {
             setLoading( false );
         }
     };
 
-    // Cuando regrese de resultados, cargar fase 2
     useEffect( () => {
         if ( votingPhase === 'phase-1-complete' ) {
             setCurrentGroups( GROUPS_PHASE_2 );
@@ -240,7 +295,6 @@ export default function VotingForm() {
                         <span className="font-semibold" suppressHydrationWarning>${( TOTAL_BUDGET - total ).toLocaleString()}</span>
                     </div>
 
-                    {/* Progress bar */}
                     <div className="mt-4">
                         <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 overflow-hidden">
                             <div
@@ -279,7 +333,6 @@ export default function VotingForm() {
                 </button>
             </form>
 
-            {/* Footer info */}
             {total > 0 && total < TOTAL_BUDGET && canVote && (
                 <p className="text-center text-gray-500 text-xs sm:text-sm mt-4 sm:mt-6" suppressHydrationWarning>
                     Has asignado ${total.toLocaleString()} de ${TOTAL_BUDGET.toLocaleString()}

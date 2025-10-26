@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -25,20 +25,59 @@ export default function ResultsPage() {
     const [lastUpdate, setLastUpdate] = useState<string>( '' );
     const [votingPhase, setVotingPhase] = useState<string | null>( null );
     const [expandedCard, setExpandedCard] = useState<string | null>( null );
+    const [shardCount, setShardCount] = useState<number>( 0 );
 
     useEffect( () => {
         const phase = localStorage.getItem( 'votingPhase' );
         setVotingPhase( phase );
 
-        const docRef = doc( db, 'groups', 'totales' );
+        // Escuchar cambios en TODA la colección 'groups' (todos los shards)
+        const groupsCollection = collection( db, 'groups' );
+        const q = query( groupsCollection );
 
-        const unsubscribe = onSnapshot( docRef, ( docSnap ) => {
-            if ( docSnap.exists() ) {
-                setTotals( docSnap.data() as Record<string, number> );
-                setLastUpdate( new Date().toLocaleTimeString( 'es-ES' ) );
+        const unsubscribe = onSnapshot(
+            q,
+            ( snapshot ) => {
+                // Agregar totales de todos los shards
+                const aggregatedTotals: Record<string, number> = {};
+
+                // Inicializar todos los grupos en 0
+                GROUPS.forEach( group => {
+                    aggregatedTotals[group] = 0;
+                } );
+
+                // Contador de shards para debugging
+                let shardsFound = 0;
+
+                // Sumar los valores de cada documento (shard)
+                snapshot.forEach( ( doc ) => {
+                    shardsFound++;
+                    const data = doc.data();
+
+                    GROUPS.forEach( group => {
+                        if ( data[group] !== undefined && typeof data[group] === 'number' ) {
+                            aggregatedTotals[group] += data[group];
+                        }
+                    } );
+                } );
+
+                setTotals( aggregatedTotals );
+                setShardCount( shardsFound );
+                setLastUpdate( new Date().toLocaleTimeString( 'es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                } ) );
+                setLoading( false );
+
+                // Log para debugging (puedes remover en producción)
+                console.log( `📊 Actualización: ${shardsFound} shards agregados` );
+            },
+            ( error ) => {
+                console.error( 'Error al escuchar cambios:', error );
+                setLoading( false );
             }
-            setLoading( false );
-        } );
+        );
 
         return () => unsubscribe();
     }, [] );
@@ -69,6 +108,7 @@ export default function ResultsPage() {
                 <div className="text-center">
                     <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-lg text-gray-600">Cargando resultados...</p>
+                    <p className="text-sm text-gray-400 mt-2">Agregando datos de múltiples shards</p>
                 </div>
             </div>
         );
@@ -96,7 +136,7 @@ export default function ResultsPage() {
                         </h1>
                         <p className="text-cyan-500 text-sm font-medium flex items-center justify-center md:justify-start gap-2">
                             <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
-                            En tiempo real
+                            En tiempo real • {shardCount} shards activos
                         </p>
                     </div>
                     {getVotingButton()}
@@ -125,6 +165,15 @@ export default function ResultsPage() {
                         </p>
                     </div>
                 </div>
+
+                {/* Debug info (remover en producción) */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
+                        <p className="font-semibold text-blue-900 mb-1">🔧 Debug Info:</p>
+                        <p className="text-blue-700">Shards detectados: {shardCount}</p>
+                        <p className="text-blue-700">Total agregado: ${totalInvested.toLocaleString()}</p>
+                    </div>
+                )}
 
                 {/* Rankings */}
                 <div className="space-y-2.5 md:space-y-3">
@@ -200,7 +249,7 @@ export default function ResultsPage() {
                 <div className="mt-8 md:mt-10 text-center">
                     <p className="text-gray-500 text-xs md:text-sm flex items-center justify-center gap-2 px-4">
                         <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse flex-shrink-0"></span>
-                        <span>Actualización automática en tiempo real</span>
+                        <span>Actualización automática • Agregando {shardCount} shards</span>
                     </p>
                     <p className="text-gray-400 text-xs mt-3 md:mt-4 uppercase tracking-widest">
                         Expo de Logros • Next Mile
