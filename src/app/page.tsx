@@ -1,6 +1,8 @@
+
+'use client';
 // src/app/page.tsx
 import VotingForm from "./components/VotingForm";
-import Image from 'next/image';
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -13,8 +15,8 @@ export default function Home() {
               {/* Logo */}
               <div className='w-full flex justify-center mb-8 md:mb-12'>
                 <Image
-                  src="/public/LogoExpoWw.svg"
-                  alt="Logo"
+                  src="/LogoW.svg"
+                  alt="LogoW"
                   width={120}
                   height={120}
                   className="md:w-[160px] md:h-[160px]"
